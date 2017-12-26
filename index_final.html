@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="http://d3js.org/d3.v4.min.js"></script>
+    <script src="http://dimplejs.org/dist/dimple.v2.3.0.min.js"></script>
+
+    <style>
+      h2 {
+        text-align: center;
+      }
+
+      div.buttons {
+        position: absolute;
+        top: 70px;
+        left: 600px;
+      }
+
+      div.buttons div {
+        float:left;
+        background-color: rgb(251, 201, 127);
+        padding: 3px 10px;
+        margin: 10px;
+        font-size: 14px;
+        border-radius: 12px;
+      }
+    </style>    
+
+    <script type="text/javascript">  
+
+      function draw(data) {
+
+          // 标签变量
+          var tag_year = ["Avg"];
+          var tag_week = ["Avg", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].reverse();
+          var tag_month = ["Avg", "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+            "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].reverse();
+          var label_dict = {Avg:"年均", Mon:"周一", Tue:"周二", Wed:"周三", Thu:"周四", Fri:"周五", 
+            Sat:"周六", Sun:"周日", Jan:"1月", Feb:"2月", Mar:"3月", Apr:"4月", May:"5月", Jun:"6月", 
+            Jul:"7月", Aug:"8月", Sep:"9月", Oct:"10月", Nov:"11月", Dec:"12月"};
+
+          //D3.js 初始化创建标题、svg、按钮
+          d3.select("body")
+            .append("h2")
+            .text("美国航班平均延误时间（1987-2008年）");
+
+          var svg = d3.select("body")
+            .append("svg")
+              .attr("width", 1400)
+              .attr("height", 600)
+            .append('g')
+                .attr('class','chart');
+
+          var buttons = d3.select("body")
+                  .append("div")
+                  .attr("class", "buttons")
+                  .selectAll("div")
+                  .data(["年均", "星期", "月份"])
+                  .enter()
+                  .append("div")
+                  .text(function(d) {
+                      return d;
+                  });
+
+          d3.select(".buttons")
+            .select("div")
+            .style("color", "white")
+            .style("background", "lightBlue");
+
+
+          //调用函数绘制年均折线图（初始界面展示的图形）
+          draw_line(data, tag_year);
+
+
+          //设置按钮点击动作的效果
+          buttons.on("click", function(d) {
+              d3.select(".buttons")
+                .selectAll("div")
+                .transition()
+                .duration(500)
+                .style("color", "black")
+                .style("background", "rgb(251, 201, 127)");
+
+              d3.select(this)
+                .transition()
+                .duration(500)
+                .style("background", "lightBlue")
+                .style("color", "white");
+
+              if (d == "年均") {
+                draw_line(data, tag_year);
+              } else if (d == "月份") {
+                draw_line(data, tag_month); 
+              } else if (d == "星期") {
+                draw_line(data, tag_week); 
+              };
+          });
+
+
+          // 绘图函数，用tag来区分绘制年均、星期、月份的不同折线图
+          function draw_line(data, tag) { 
+
+            svg.selectAll('*').remove();
+            
+            // Dimple.js 创建图形
+            var myChart = new dimple.chart(svg, data);
+            myChart.data = dimple.filterData(data, "category", tag);
+            myChart.setBounds(200, 100, 1000, 450);
+
+            var x = myChart.addTimeAxis("x", "year");
+            x.dateParseFormat = "%Y";
+            x.tickFormat = "%Y";
+            x.title = "年份";
+            x.fontSize = 12;
+
+            var y = myChart.addMeasureAxis("y", "avgdelay");
+            y.title = "延误时间(分钟)";
+            y.fontSize = 12;
+
+            var s = myChart.addSeries("category", dimple.plot.line);
+           
+
+            // 设置图形初始颜色和透明度
+            myChart.assignColor("Avg", "#696969", "Black", 1);           
+            tag.forEach(function(v) {
+              if (v != "Avg") {
+                myChart.assignColor(v, myChart.getColor(v).fill,
+                                       myChart.getColor(v).stroke,
+                                       0.1);               
+              };
+            });
+
+
+            // 设置图例及其排列顺序、初始透明度
+            var myLegend = myChart.addLegend(300, 75, 850, 20, "right");
+            myLegend.fontSize = "12px";
+            myLegend._getEntries = function () {
+                var entries = [];
+                tag.forEach(function (v) {
+                  if (v != "Avg") {
+                    entries.push({
+                            key: v,
+                            fill: myChart.getColor(v).fill,
+                            stroke: myChart.getColor(v).stroke,
+                            opacity: 0.3,
+                            series: s,
+                            aggField: [v]
+                    });                    
+                  } else {
+                    entries.push({
+                            key: v,
+                            fill: myChart.getColor(v).fill,
+                            stroke: myChart.getColor(v).stroke,
+                            opacity: 0.8,
+                            series: s,
+                            aggField: [v]   
+                    });                  
+                  };
+                }, this);
+                return entries;
+            };
+
+
+            // 绘图，设置1秒的持续时间
+            myChart.draw(1000);
+
+
+            // 将图例中英文改成对应的中文
+            tag.forEach(function(v) {
+              d3.select("text.dimple-custom-legend-label.dimple-" + v.toLowerCase())
+                .text(label_dict[v]);
+            });
+
+
+            // 在年均图例标签上方增加对应的所有年份的平均延误时间显示
+            var x_click = 1137;
+            if (tag == tag_week) {
+              x_click = 715;
+            }else if (tag == tag_month) {
+              x_click = 443;
+            };
+            svg.selectAll(".dimple-legendclick-text-Avg")
+              .data([d3.format(",.1f")(calc_avg(myChart.data, "Avg")) + "分钟"])
+                .enter()
+                .append("text")
+                .attr("class", "dimple-legendclick-text-Avg")
+                .attr("x", x_click)
+                .attr("y", 64)
+                .style("font-family", "courier new")
+                .style("text-anchor", "end")
+                .style("font-size", "12px")
+                .style("fill", "Black")
+                .style("pointer-events", "none")
+                .text(function (d) { return d; }); 
+
+
+            // 增加图例附近的说明文字
+            var x_text = 1070;
+            var t_text = "每年的平均延误时间";
+            if (tag == tag_week) {
+              x_text = 650;
+              t_text = "点击标签选择星期";
+            }else if (tag == tag_month) {
+              x_text = 380;
+              t_text = "点击标签选择月份";
+            };
+            svg.selectAll("title_text")
+              .data(["所有年份的平均延误时间", t_text])
+              .enter()
+              .append("text")
+                .attr("x", x_text)
+                .attr("y", function (d, i) { return 64 + i * 20; })
+                .attr("text-anchor", "end")
+                .style("font-family", "sans-serif")
+                .style("font-size", "12px")
+                .style("color", "Black")
+                .text(function (d) { return d; });
+
+            // 在星期、月份图中，设置图例标签的点击效果
+            if (tag != tag_year) {
+              myChart.legends = [];
+              myLegend.shapes.selectAll("rect")
+                .on("click", function (e) {    
+                  //获取用于图形设置的一系列变量
+                  var e_text = e.aggField.slice(-1)[0];
+                  var e_opac = d3.select(this).style("opacity");
+                  var e_index = tag.length - tag.indexOf(e_text) - 1;
+                  var e_class = "dimple-legendclick-text-" + e_text;
+                  var e_x = 0;
+                  if (tag == tag_week) {
+                    e_x = 715 + e_index * 59.5 ;
+                  }else if (tag == tag_month) {
+                    e_x = 443 + e_index * 57.5;
+                  };
+                  
+                  // 如果标签是暗的，则点亮它和对应的折线，并增加对应的所有年份均值显示
+                  if (e_opac < 0.5) {
+                    d3.select(this).style("opacity", 0.8);
+                    d3.select("path.dimple-" + e_text.toLowerCase()).style("opacity", 1); 
+
+                    svg.selectAll("." + e_class)
+                      .data([d3.format(",.1f")(calc_avg(myChart.data, e_text)) + "分钟"])
+                        .enter()
+                        .append("text")
+                        .attr("class", e_class)
+                        .attr("x", e_x)
+                        .attr("y", 64)
+                        .style("font-family", "courier new")
+                        .style("text-anchor", "end")
+                        .style("font-size", "12px")
+                        .style("fill", "Black")
+                        .style("pointer-events", "none")
+                        .text(function (d) { return d; }); 
+
+                  } else { // 如果标签已被点亮，则使它和对应的折线变暗，并移除所有年份均值显示
+                    d3.select(this).style("opacity", 0.3);
+                    d3.select("path.dimple-" + e_text.toLowerCase()).style("opacity", 0.1);  
+                    svg.selectAll("." + e_class).remove();      
+                  };                  
+                });              
+            };
+
+          };
+
+
+          // 计算所有年份平均值的函数
+          function calc_avg(data, category){
+            var i = 0;
+            var delaysum = 0;
+            var e_length = 0;
+            var delayavg = 0;
+            for (i=0; i < data.length; i++) {
+              if (data[i]['category'] == category) {
+                delaysum += parseFloat(data[i]['avgdelay']);
+                e_length += 1;
+              };                   
+            };
+            delayavg = delaysum / e_length;
+            delayavg = delayavg.toFixed(1);
+            return delayavg
+          };
+
+
+        };
+
+    </script>
+  </head>
+<body>
+
+
+  <script type="text/javascript">
+  // D3调用数据文件绘图
+  d3.csv("flights_avgdelay.csv", draw);
+  </script>
+</body>
+</html>
+
+

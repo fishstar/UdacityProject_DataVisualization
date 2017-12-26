@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <script src="http://d3js.org/d3.v4.min.js"></script>
+    <script src="http://dimplejs.org/dist/dimple.v2.3.0.min.js"></script>
+
+    <style>
+      h2 {
+        text-align: center;
+      }
+
+      div.buttons {
+        position: absolute;
+        top: 90px;
+        left: 600px;
+      }
+
+      div.buttons div {
+        float:left;
+        background-color: rgb(251, 201, 127);
+        padding: 3px 10px;
+        margin: 7px;
+        font-size: 14px;
+        border-radius: 12px;
+      }
+    </style>    
+
+    <script type="text/javascript">
+
+      function draw(data) {
+
+        var tag_year = ["Avg"];
+        var tag_week = ["Avg", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].reverse();
+        var tag_month = ["Avg", "Jan", "Feb", "Mar", "Apr", "May", "Jun", 
+          "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"].reverse();
+      
+        //D3.js 初始化创建标题、svg
+        "use strict";
+        var margin = 75,
+            width = 1400 - margin,
+            height = 600 - margin;
+
+        d3.select("body")
+          .append("h2")
+          .text("USA Flights Delay Time from 1987 to 2008");
+
+        var svg = d3.select("body")
+          .append("svg")
+            .attr("width", width + margin)
+            .attr("height", height + margin)
+          .append('g')
+              .attr('class','chart');
+
+
+          //Dimple.js 绘制折线图
+          var myChart = new dimple.chart(svg, data);
+          draw_line(myChart, tag_year);
+
+          // 绘图函数，用tag来区分绘制年均、星期、月份的不同折线图
+          function draw_line(myChart, tag){
+
+            myChart.data = dimple.filterData(data, "category", tag);
+            myChart.setBounds(200, 100, 1000, 450);
+
+            var x = myChart.addTimeAxis("x", "year");
+            x.dateParseFormat = "%Y";
+            x.tickFormat = "%Y";
+            x.title = "Year";
+            x.fontSize = 12;
+
+            var y = myChart.addMeasureAxis("y", "avgdelay");
+            y.title = "Average Arrival Delay (minutes)";
+            y.fontSize = 12;
+
+            var s = myChart.addSeries("category", dimple.plot.line);
+            myChart.assignColor("Avg", "Black");
+
+            // 设置图例及其顺序
+            var myLegend = myChart.addLegend(300, 75, 850, 20, "right");
+            myLegend._getEntries = function () {
+                var orderedValues = tag
+                var entries = [];
+                orderedValues.forEach(function (v) {
+                    entries.push({
+                            key: v,
+                            fill: myChart.getColor(v).fill,
+                            stroke: myChart.getColor(v).stroke,
+                            opacity: myChart.getColor(v).opacity,
+                            series: s,
+                            aggField: [v]
+                    });
+                }, this);
+                return entries;
+            };
+
+            myChart.draw(1000);
+
+
+            // 在星期、月份图中，设置图例标签的点击效果
+            if (tag != tag_year) {
+              myChart.legends = [];
+
+              // 增加图例附近的说明文字
+              var x_text = 200;
+              var t_text = "";
+              if (tag == tag_week) {
+                x_text = 560;
+                t_text = "week";
+              }else if (tag == tag_month) {
+                x_text = 285;
+                t_text = "month";
+              };
+              svg.selectAll("title_text")
+                .data(["Click legend to select " + t_text])
+                .enter()
+                .append("text")
+                  .attr("x", x_text)
+                  .attr("y", 82)
+                  .style("font-family", "sans-serif")
+                  .style("font-size", "10px")
+                  .style("color", "Black")
+                  .text(function (d) { return d; });
+
+
+              // 设置图例标签的点击效果
+              var filterValues = tag;
+              myLegend.shapes.selectAll("rect")
+                .on("click", function (e) {
+                  var hide = false;
+                  var newFilters = [];
+                  filterValues.forEach(function (f) {
+                    if (f === e.aggField.slice(-1)[0]) {
+                      hide = true;
+                    } else {
+                      newFilters.push(f);
+                    }
+                  });
+                  if (hide) {
+                    d3.select(this).style("opacity", 0.2);
+                  } else {
+                    newFilters.push(e.aggField.slice(-1)[0]);
+                    d3.select(this).style("opacity", 0.8);
+                  }
+                  filterValues = newFilters;
+                  myChart.data = dimple.filterData(data, "category", filterValues);
+                  myChart.draw(1000);
+                }); 
+
+            };
+
+          };
+
+
+          // 设置按钮
+          var buttons = d3.select("body")
+                  .append("div")
+                  .attr("class", "buttons")
+                  .selectAll("div")
+                  .data(["year", "week", "month"])
+                  .enter()
+                  .append("div")
+                  .text(function(d) {
+                      return d;
+                  });
+
+          d3.select(".buttons")
+            .select("div")
+            .style("color", "white")
+            .style("background", "lightBlue");
+
+
+          // 设置按钮的点击效果
+          buttons.on("click", function(d) {
+              d3.select(".buttons")
+                .selectAll("div")
+                .transition()
+                .duration(500)
+                .style("color", "black")
+                .style("background", "rgb(251, 201, 127)");
+
+              d3.select(this)
+                .transition()
+                .duration(500)
+                .style("background", "lightBlue")
+                .style("color", "white");
+
+              myChart.svg.selectAll('*').remove();
+              var myChart_new = new dimple.chart(svg, data);
+              if (d == "year") {
+                draw_line(myChart_new, tag_year);
+              } else if (d == "month") {
+                draw_line(myChart_new, tag_month); 
+              } else if (d == "week") {
+                draw_line(myChart_new, tag_week); 
+              };
+          });
+
+        };
+
+    </script>
+  </head>
+<body>
+
+
+  <script type="text/javascript">
+  d3.csv("flights_avgdelay.csv", draw);
+  </script>
+</body>
+</html>
+
+

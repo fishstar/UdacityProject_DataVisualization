@@ -1,0 +1,8 @@
+数据说明：
+可视化采用的航班延误数据保存在 flights_avgdelay.csv 文件中。
+原始数据下载地址：http://stat-computing.org/dataexpo/2009/the-data.html
+原数据比较大，经 rawdata_process.py Python脚本处理后，生成 flights_avgdelay.csv，用于可视化展现。
+该数据文件包含三列，分别是：
+1. year: 年代，范围从1987到2008
+2. category：存储星期、月份等筛选信息
+3. avgdelay：航班平均延误时间
